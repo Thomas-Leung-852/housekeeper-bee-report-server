@@ -1,0 +1,23 @@
+{
+  "name": "housekeeper-report-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && npm start",
+    "prod": "concurrently \"npm run prod:backend\" \"npm run prod:frontend\"",
+    "prod:backend": "cd backend && npm run dev",
+    "prod:frontend": "cd frontend && cd dist && serve --cors -n -s --ssl-cert cert.pem --ssl-key key.pem -p 3843 . "
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Report server for Housekeeper Bee with JSX templates",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
