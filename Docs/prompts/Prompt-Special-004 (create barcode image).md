@@ -77,8 +77,7 @@ J.Create EAN-13 barcode image by using the following code:
             <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: '0.9rem', textAlign: 'center' }}>
                 {row.barcode ? (
                   <img
-                    alt='Barcode Generator TEC-IT'
-                    src={`https://barcode.tec-it.com/barcode.ashx?data=${row.barcode}&code=EAN13`}
+                    src={`[!MY_API_SRV]/api/barcode/ean13?data=${row.barcode}`}
                   />
                 ) : (
                   <span>No Barcode</span> // Optional: display a message if there's no barcode
@@ -88,5 +87,24 @@ J.Create EAN-13 barcode image by using the following code:
               </td>
 ```
 
+K. Security requirement
+- NO Node.js file system modules
+- NO child process execution
+- NO dynamic code execution
+- NO browser storage APIs
+- NO external network calls (except relative API paths)
+- NO dangerous HTML manipulation
+
+L. Forbidden Patterns - NEVER USE:
+- ❌ `require('fs')` or `require('fs/promises')`
+- ❌ `require('child_process')`
+- ❌ `require('os')`, `require('net')`, `require('http')`, `require('https')`
+- ❌ `require('vm')`, `require('path')`
+- ❌ `eval()`, `new Function()`
+- ❌ `localStorage`, `sessionStorage`, `indexedDB`
+- ❌ `dangerouslySetInnerHTML`
+- ❌ `process.exit()`, `process.env`, `process.kill()`
+- ❌ File operations (fs.unlink, fs.writeFile, etc.)
+- ❌ ES6 import/export syntax
 
 

@@ -105,9 +105,14 @@ export async function renderReport(templateName, cssStyle, data) {
 
     // Render the component to HTML string
     // Pass data as props if the component expects it
-    const html = ReactDOMServer.renderToString(
+    var html = ReactDOMServer.renderToString(
       React.createElement(Component, { data })
     );
+
+    // create barcode. set backend api url https://ip:3801
+    if(html.length > 0){
+      html = html.replaceAll('[!MY_API_SRV]', `${process.env.API_URL}`).replaceAll('[!my_api_srv]', `${process.env.API_URL}`);
+    }
 
     // Wrap in a complete HTML document
     return `

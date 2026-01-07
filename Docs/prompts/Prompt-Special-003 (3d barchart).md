@@ -84,6 +84,22 @@ H. Table column filter requirement:
 I. JSX requirement
 -. change ES syntax to CommonJS (such as keywords - "import" change to "const", "export default" change to "moudle.exports" and etc.)
 
-````
+J. Security requirement
+- NO Node.js file system modules
+- NO child process execution
+- NO dynamic code execution
+- NO browser storage APIs
+- NO external network calls (except relative API paths)
+- NO dangerous HTML manipulation
 
-
+K. Forbidden Patterns - NEVER USE:
+- ❌ `require('fs')` or `require('fs/promises')`
+- ❌ `require('child_process')`
+- ❌ `require('os')`, `require('net')`, `require('http')`, `require('https')`
+- ❌ `require('vm')`, `require('path')`
+- ❌ `eval()`, `new Function()`
+- ❌ `localStorage`, `sessionStorage`, `indexedDB`
+- ❌ `dangerouslySetInnerHTML`
+- ❌ `process.exit()`, `process.env`, `process.kill()`
+- ❌ File operations (fs.unlink, fs.writeFile, etc.)
+- ❌ ES6 import/export syntax

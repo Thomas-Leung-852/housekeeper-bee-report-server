@@ -6,7 +6,7 @@ const reportStyles_light_01 = {
     margin: '0 auto',
     padding: '40px',
     fontFamily: 'system-ui, -apple-system, sans-serif',
-    background: 'white',
+    background: '#ffffff',
     borderRadius: '20px',
     boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
   },

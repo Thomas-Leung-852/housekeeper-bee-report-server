@@ -167,6 +167,3 @@ O. Forbidden Patterns - NEVER USE:
 - ❌ `process.exit()`, `process.env`, `process.kill()`
 - ❌ File operations (fs.unlink, fs.writeFile, etc.)
 - ❌ ES6 import/export syntax
-
-
-

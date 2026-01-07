@@ -212,8 +212,8 @@ const HousekeeperStorageReport = ({ data }) => {
                 {row.barcode ? (
                   <>
                     <img
-                      alt="Barcode Generator TEC-IT"
-                      src={`https://barcode.tec-it.com/barcode.ashx?data=${row.barcode}&code=EAN13`}
+                      alt=""
+                      src={`[!MY_API_SRV]/api/barcode/ean13?data=${row.barcode}`}
                     />
                     <br />
                     {row.barcode}
