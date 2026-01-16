@@ -1,4 +1,4 @@
-import Datastore from 'nedb';
+import Datastore from '@seald-io/nedb';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -35,8 +35,8 @@ class NosqlDbTools {
     };
 
     insertIfNotExists = (data, keys) => {
-        const query = createCompositeQuery(data, keys);
-        checkExists(query, (err, exists) => {
+        const query = this.createCompositeQuery(data, keys);
+        this.checkExists(query, (err, exists) => {
             if (err) {
                 console.error('Error finding document:', err);
                 return;
@@ -44,7 +44,7 @@ class NosqlDbTools {
 
             if (!exists) {
                 // Document does not exist, insert new document
-                insertDocument(data);
+                this.insertDocument(data);
             } else {
                 console.log('Document already exists:', data);
             }
@@ -81,7 +81,6 @@ class NosqlDbTools {
             } 
         });
     };
-
 
     // Edit or Add if Not Exist
     editOrAddDocument = (criteria, updateData) => {

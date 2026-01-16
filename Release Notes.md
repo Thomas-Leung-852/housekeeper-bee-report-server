@@ -1,7 +1,27 @@
 # RELEASE NOTE
 
+## Version: v1.2.1
+Release Date: 2026/01/16-B
+
+### ✦ Critical Bug Fixed
+- The nedb package is not compatible with Node version 24.13.0 LTS, so we have switched to using the @seald-io/nedb package instead.
+
+If you have already updated to v1.2.0, you need to uninstall nedb and then install @seald-io/nedb.
+
+Step 1: Goto ***housekeeper-report-server/src/backend/***    
+Step 2: Run the following commands
+
+```
+# Remove old nedb
+npm uninstall nedb
+
+# Install @seald-io/nedb
+npm install @seald-io/nedb
+```
+<br>    
+
 ## Version: v1.2.0
-Release Date: 2026/01/??
+Release Date: 2026/01/16-A
 
 ### ✦ Bug Fixed
 - Prompt-General.md in download folder - Removed preset report requirement
