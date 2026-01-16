@@ -1,8 +1,5 @@
 ## Prompt Template for report creation
 
-User Report Requirement:
-I want you to create a very simple report to analyze my storage boxes usage grouped by tag and number of boxes and show data in table (column #, tag, number of boxes, boxes name [each box add newline]) and then show bar chart below the data table. Uses pure HTML/CSS/SVG for the bar chart.
-
 A. Create a Housekeeper Bee report as a JSX component in CommonJS format.
 - Format: JSX component using CommonJS (const React = require('react'), module.exports = ...).
 - Signature: const HousekeeperBeeReport = ({ data }) => { ... }

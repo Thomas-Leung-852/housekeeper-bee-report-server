@@ -6,6 +6,7 @@ import ReactDOMServer from 'react-dom/server';
 import { transformSync } from '@babel/core';
 import { loadStyle } from '../utils/loadStyle.js';
 import { createRequire } from 'module';
+import { getFileHash } from '../utils/fileEx.js'
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -17,7 +18,7 @@ export async function loadTemplate(templateName, cssStyle) {
   const templatePath = path.join(TEMPLATE_DIR, `${templateName}.jsx`);
   let jsxCode = await fs.readFile(templatePath, 'utf-8');
 
-  console.log(`Loading template: ${templateName}`);
+  //console.log(`Loading template: ${templateName}`);
 
   const reportStyles = await loadStyle(cssStyle);
 
@@ -110,7 +111,7 @@ export async function renderReport(templateName, cssStyle, data) {
     );
 
     // create barcode. set backend api url https://ip:3801
-    if(html.length > 0){
+    if (html.length > 0) {
       html = html.replaceAll('[!MY_API_SRV]', `${process.env.API_URL}`).replaceAll('[!my_api_srv]', `${process.env.API_URL}`);
     }
 
@@ -136,7 +137,7 @@ export async function renderReport(templateName, cssStyle, data) {
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
     </style>
-   <script src='/js/housekeeperBee.js' ></script>
+    <script src='/js/housekeeperBee.js' ></script>
 </head>
 <body onload="init();" >
     ${html}
@@ -195,9 +196,23 @@ export async function renderReport(templateName, cssStyle, data) {
 export async function listTemplates() {
   try {
     const files = await fs.readdir(TEMPLATE_DIR);
-    return files
+
+    // return files
+    //   .filter(file => file.endsWith('.jsx'))
+    //   .map(file => file.replace('.jsx', ''));
+
+    // Filter and map to file metadata
+    const templateFiles = files
       .filter(file => file.endsWith('.jsx'))
-      .map(file => file.replace('.jsx', ''));
+      .map(file => path.join(TEMPLATE_DIR, file)); // Get full paths for use in getFileHash
+
+    // Wait for all hash computations
+    const fileData = await Promise.all(templateFiles.map(async (filePath) => {
+      const fileHash = await getFileHash(filePath);
+      return { templateName: path.basename(filePath, '.jsx'), fileHash };
+    }));
+
+    return fileData;
   } catch (error) {
     console.error('Error reading templates directory:', error);
     return [];

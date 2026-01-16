@@ -8,7 +8,8 @@ import multer from 'multer';
 import checkForDangerousCode from '../utils/checkForDangerousCode.js'
 import checkForDangerousCodeEx from '../utils/checkForDangerousCodeEx.js'
 import bwipjs from 'bwip-js';
-//import dotenv from 'dotenv';
+import NosqlDbTools from '../utils/nosqlDbTools.js'
+import jwt from 'jsonwebtoken';
 
 //******************************************** */
 // Report Template management :: Begin
@@ -81,6 +82,7 @@ const fileExists = async (filepath) => {
   }
 };
 
+
 //******************************************** */
 // Report Template management :: End
 //******************************************** */
@@ -103,6 +105,18 @@ const verifyToken = (req, res, next) => {
 //   return {'session_token': 'aa-bb-cc-dd'};
 // });
 
+//*************************************************** */
+// Get Cliam from session token 
+// if run on client side jsonwebtoken cause error
+//*************************************************** */
+router.get('/decode/:sessionToken', (req, res) => {
+  const { sessionToken } = req.params
+  const decoded = jwt.decode(sessionToken);
+  res.json({userCode: `${decoded?.userCode || '' }`, userDisplayName: `${decoded?.userDisplayName || ''}`});
+});
+
+
+
 // Safe config endpoint - only non-sensitive data
 router.get('/config', (req, res) => {
   res.json({
@@ -114,13 +128,17 @@ router.get('/config', (req, res) => {
 router.get('/reports/list', async (req, res) => {
   try {
     const templates = await listTemplates();
+
+    var templatesProfile = templates.map((item) => ({
+      name: item.templateName,
+      title: formatTitle(item.templateName),
+      url: `/api/reports/render/${item.templateName}`,
+      file_hash: item.fileHash
+    }));
+
     res.json({
       success: true,
-      reports: templates.map(name => ({
-        name,
-        title: formatTitle(name),
-        url: `/api/reports/render/${name}`
-      }))
+      reports: templatesProfile
     });
   } catch (error) {
     res.status(500).json({
@@ -129,6 +147,67 @@ router.get('/reports/list', async (req, res) => {
     });
   }
 });
+
+//************************************************************************************************************************************************* */
+// Favorite :: Begin
+//************************************************************************************************************************************************* */
+
+router.get('/reports/:userId/favorite', async (req, res) => {
+  const { userId } = req.params;
+  const nosqlDbTools = new NosqlDbTools();
+  const docs = await nosqlDbTools.findDocuments() || {};
+
+  var rst = {};
+
+  if (Array.isArray(docs) && docs.length > 0) {
+    rst = docs.filter(e => e.doc_type === 'favorite' && e.user === `${userId}`);
+  }
+
+  res.send(rst);
+});
+
+router.get('/reports/:userId/favorite/:rptHash', async (req, res) => {
+  const { userId, rptHash } = req.params;
+  const nosqlDbTools = new NosqlDbTools();
+  const docs = await nosqlDbTools.findDocuments() || {};
+
+  var rst = {};
+
+  if (Array.isArray(docs) && docs.length > 0) {
+    rst = docs.filter(e => e.doc_type === 'favorite' && e.user === `${userId}` && e.file_hash === `${rptHash}`);
+  }
+
+  res.send(rst);
+});
+
+router.post('/reports/:userId/favorite/:rptHash', verifyToken, async (req, res) => {
+  const { userId, rptHash } = req.params;
+  const nosqlDbTools = new NosqlDbTools();
+  const dt = { doc_type: 'favorite', file_hash: `${rptHash}`, user: `${userId}` };
+
+  nosqlDbTools.deleteDocument({ doc_type: 'favorite', file_hash: `${rptHash}`, user: `${userId}` });
+  nosqlDbTools.insertDocument(dt);
+
+  const rst = { result: 'success' }
+
+  res.send(rst);
+});
+
+router.delete('/reports/:userId/favorite/:rptHash', verifyToken, async (req, res) => {
+  const { userId, rptHash } = req.params;
+  const nosqlDbTools = new NosqlDbTools();
+
+  nosqlDbTools.deleteDocument({ doc_type: 'favorite', file_hash: `${rptHash}`, user: `${userId}` });
+
+  const rst = { result: 'success' }
+
+  res.send(rst);
+});
+
+//************************************************************************************************************************************************* */
+// Favorite :: End
+//************************************************************************************************************************************************* */
+
 
 //Error handle page
 router.get('/error/:errCode/:msg', async (req, res) => {
@@ -244,7 +323,7 @@ router.get('/barcode/ean13', async (req, res) => {
 
 
 // Generate EAN13 barcode support svg - v1.1.0
-router.get('/api/barcode/ean13/svg', async (req, res) => {
+router.get('/barcode/ean13/svg', async (req, res) => {
   try {
     const { data } = req.query;
 
@@ -377,7 +456,7 @@ Remember: Output ONLY the JSX code, nothing else.`;
 
     let ollamaResponse;
     try {
-      ollamaResponse = await fetch(`${process.env.OLLAMA_API}/generate`, {
+       ollamaResponse = await fetch(`${process.env.OLLAMA_API}/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -388,7 +467,7 @@ Remember: Output ONLY the JSX code, nothing else.`;
           prompt: `${systemPrompt}\n\nUser Request:\n${userPrompt}`,
           stream: false,
           options: {
-            temperature: 0.7,
+            temperature: 0.5,
             top_p: 0.9,
           }
         }),

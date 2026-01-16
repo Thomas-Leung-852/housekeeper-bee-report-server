@@ -1,5 +1,52 @@
 # RELEASE NOTE
 
+## Version: v1.2.0
+Release Date: 2026/01/??
+
+### ✦ Bug Fixed
+- Prompt-General.md in download folder - Removed preset report requirement
+
+### ✦ AI Template Generator
+
+- Store the last prompt in the active session. You can enhance the report by appending comments at the end of the original prompt to optimize it.
+
+![](https://static.wixstatic.com/media/0d7edc_b271c80569e74c8e835399275775f5c7~mv2.jpg)
+
+### ✦ Report main screen
+
+- Bookmark Favorite Reports: Implement a feature that allows users to bookmark their favorite reports for easy access.
+
+- Filter by Report Name and Bookmarked Reports: Include functionality to filter reports by name and to view only the bookmarked reports for quicker navigation.
+
+
+
+<br>
+
+Backend installed the following packages
+
+```
+npm install nedb jsonwebtoken
+```
+<br>
+
+![](https://static.wixstatic.com/media/0d7edc_cbe7c0dbb2ec48148fd9465d0b70184c~mv2.jpg)
+![](https://static.wixstatic.com/media/0d7edc_72482ef44511479eb2eda078853b5743~mv2.jpg)
+
+
+### Requirement
+
+Housekeeper Bee Web App v1.7.1   
+
+![](https://static.wixstatic.com/media/0d7edc_13c46688237b46f8ace24bcf191e1608~mv2.jpg)
+
+Download:    
+
+- Core Application: https://github.com/Thomas-Leung-852/HousekeeperBeeWebApp
+
+
+- Application Updater: https://github.com/Thomas-Leung-852/HousekeeperBeeWebAppUpdateTool
+
+
 ## Version: v1.1.0
 Release Date: 2026/01/08
 
