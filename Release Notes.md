@@ -1,5 +1,12 @@
 # RELEASE NOTE
 
+## Version: v1.2.2
+Release Date: 2026/01/21
+
+### ✦ Bug Fixed
+- Export CSV/JSON/ PDF multiple times 
+- Report dashboard cannot load the bookmarks.
+
 ## Version: v1.2.1
 Release Date: 2026/01/16-B
 
