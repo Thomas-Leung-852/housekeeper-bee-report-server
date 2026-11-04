@@ -7,6 +7,7 @@ import configRoutes from './routes/configRoutes.js';
 import rateLimit from 'express-rate-limit';
 import https from 'https';
 import fs from 'fs';
+import { seedDefaultAppSettings } from './routes/appSettingRoutes.js';
 
 dotenv.config();
 
@@ -109,4 +110,7 @@ https.createServer(options, app).listen(PORT, () => {
   console.log(`🚀 Backend server running on https://localhost:${PORT}`);
   console.log(`📊 API: https://localhost:${PORT}/api`);
   console.log(`🏥 Health: https://localhost:${PORT}/health`);
+
+  seedDefaultAppSettings();
+
 });

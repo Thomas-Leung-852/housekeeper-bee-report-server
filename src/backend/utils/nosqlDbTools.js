@@ -154,4 +154,5 @@ class NosqlDbTools {
     };
 }
 
+export const dbInstance = new NosqlDbTools();
 export default NosqlDbTools;

@@ -174,7 +174,10 @@ B. RAW Data structure (Input data) sample:
    locationName: 'bedroom',
    locationStatus: 'Full',
    familyName: 'My Dream House',
-  tags: [ 'cables', 'hdmi', 'electronics', 'audio' ]
+  tags: [ 'cables', 'hdmi', 'electronics', 'audio' ],
+  withNFC: 'no',
+  withIBeacon: 'no',
+  withBarcode: 'no'
 }
 
 C. RULES:
@@ -207,6 +210,27 @@ F. IMPORTANT:
 - Do not use useEffect
 
 ```
+
+### Prompt Example: Creating Interactive HTML Storage Reports
+
+```
+Generate a storage inventory report as an HTML table with the following columns:
+
+Storage Location – the location where the box is stored
+Storage Box Name – the name of the storage box
+Total Items – total number of items currently in the storage box
+Status – the current status of the storage box
+NFC – display Yes if the box has an NFC tag; otherwise 'No'
+Barcode – display Yes if the box has a barcode indicator; otherwise 'No'
+iBeacon – display Yes if the box has an iBeacon indicator; otherwise 'No'
+View – an HTML link that opens the storage box detail page in a new browser tab, using the format:
+<a href="https://192.168.50.100:8443/storages/search/storage/storagecode/{STORAGE_BOX_CODE}" target="_blank">View</a>
+Replace {STORAGE_BOX_CODE} with the actual storage box code for each row.
+Example URL: https://192.168.50.100:8443/storages/search/storage/storagecode/030f734d20cc23165347ecc626e051de
+```
+
+#### IMPORTANT
+Go to App Settings → Security → iframe sandbox to enable those features.   
 
 <br>
 

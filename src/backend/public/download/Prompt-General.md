@@ -7,7 +7,8 @@ A. Create a Housekeeper Bee report as a JSX component in CommonJS format.
 - **CRITICAL**: Do NOT access `document` object during render. Use inline event handlers (onClick, onChange) instead of getElementById.
 - **CRITICAL**: Do NOT call functions that access DOM elements during component render. Only access DOM in event handlers.
 - Include the AI assistant name in code comment. 
-- Include the AI model name and version in code comment.    
+- Include the AI model name and version in code comment.
+- Include the user prompt in code comment.    
 - Include report sub-title follow the "Housekeeper Bee Report", if the sub-title not provided, you should create a sub-title for the report.
 
 B. RAW Data structure (Input data) sample:   
@@ -24,7 +25,10 @@ B. RAW Data structure (Input data) sample:
    locationName: 'bedroom',   
    locationStatus: 'Full',   
    familyName: 'My Dream House',   
-  tags: [ 'cables', 'hdmi', 'electronics', 'audio' ]   
+  tags: [ 'cables', 'hdmi', 'electronics', 'audio' ],   
+   withIBeacon: 'no',
+   withNFC: 'no',
+   withBarcode: 'no'
 }   
 
 C. RULES:

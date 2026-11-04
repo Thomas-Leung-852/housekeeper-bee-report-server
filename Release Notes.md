@@ -1,5 +1,16 @@
 # RELEASE NOTE
 
+
+## Version: v1.3.0
+Release Date: 2026/11/05
+
+### New
+- Added an "App Settings" function to configure security settings.
+
+### Modified
+- **public/download/Prompt-General.md**: Added `withNfc`, `withBarcode`, and `withIBeacon` to Raw Data; stored user prompts in the JSX report template.
+- **ReportViewer.jsx**: Retrieved the iframe sandbox configuration from App Settings.
+
 ## Version: v1.2.2
 Release Date: 2026/01/21
 

@@ -8,8 +8,9 @@ import multer from 'multer';
 import checkForDangerousCode from '../utils/checkForDangerousCode.js'
 import checkForDangerousCodeEx from '../utils/checkForDangerousCodeEx.js'
 import bwipjs from 'bwip-js';
-import NosqlDbTools from '../utils/nosqlDbTools.js'
+import { dbInstance as db } from '../utils/nosqlDbTools.js'
 import jwt from 'jsonwebtoken';
+import appSettingRouter from './appSettingRoutes.js';
 
 //******************************************** */
 // Report Template management :: Begin
@@ -89,6 +90,9 @@ const fileExists = async (filepath) => {
 
 const router = express.Router();
 
+// Application Setting :: Security, timeout
+router.use('/app-settings', appSettingRouter);
+
 // Session token verification
 const verifyToken = (req, res, next) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
@@ -154,8 +158,7 @@ router.get('/reports/list', async (req, res) => {
 
 router.get('/reports/:userId/favorite', async (req, res) => {
   const { userId } = req.params;
-  const nosqlDbTools = new NosqlDbTools();
-  const docs = await nosqlDbTools.findDocuments() || {};
+  const docs = await db.findDocuments() || {};
 
   var rst = {};
 
@@ -168,8 +171,7 @@ router.get('/reports/:userId/favorite', async (req, res) => {
 
 router.get('/reports/:userId/favorite/:rptHash', async (req, res) => {
   const { userId, rptHash } = req.params;
-  const nosqlDbTools = new NosqlDbTools();
-  const docs = await nosqlDbTools.findDocuments() || {};
+  const docs = await db.findDocuments() || {};
 
   var rst = {};
 
@@ -182,11 +184,10 @@ router.get('/reports/:userId/favorite/:rptHash', async (req, res) => {
 
 router.post('/reports/:userId/favorite/:rptHash', verifyToken, async (req, res) => {
   const { userId, rptHash } = req.params;
-  const nosqlDbTools = new NosqlDbTools();
   const dt = { doc_type: 'favorite', file_hash: `${rptHash}`, user: `${userId}` };
 
-  nosqlDbTools.deleteDocument({ doc_type: 'favorite', file_hash: `${rptHash}`, user: `${userId}` });
-  nosqlDbTools.insertDocument(dt);
+  db.deleteDocument({ doc_type: 'favorite', file_hash: `${rptHash}`, user: `${userId}` });
+  db.insertDocument(dt);
 
   const rst = { result: 'success' }
 
@@ -195,9 +196,8 @@ router.post('/reports/:userId/favorite/:rptHash', verifyToken, async (req, res) 
 
 router.delete('/reports/:userId/favorite/:rptHash', verifyToken, async (req, res) => {
   const { userId, rptHash } = req.params;
-  const nosqlDbTools = new NosqlDbTools();
 
-  nosqlDbTools.deleteDocument({ doc_type: 'favorite', file_hash: `${rptHash}`, user: `${userId}` });
+  db.deleteDocument({ doc_type: 'favorite', file_hash: `${rptHash}`, user: `${userId}` });
 
   const rst = { result: 'success' }
 
