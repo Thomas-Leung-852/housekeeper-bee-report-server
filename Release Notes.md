@@ -1,5 +1,19 @@
 # RELEASE NOTE
 
+## Version: v1.4.0
+Release Date: 2026/11/09
+
+### Modified
+Report Template Manager 
+1. Added 'Prview' report of each report template
+2. Added 'AI Template Editor' button to call the EditTemplateDialog
+
+Security 
+1. Added Prompt injection prevention 
+2. more client side script checking 
+
+### New
+1. AI Template Editor
 
 ## Version: v1.3.0
 Release Date: 2026/11/05

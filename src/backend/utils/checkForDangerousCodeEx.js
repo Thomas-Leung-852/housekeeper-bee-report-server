@@ -77,7 +77,39 @@ const checkForDangerousCodeEx = (fileContent) => {
       {
         pattern: /import\s*\(?\s*`.*`\s*\)?/gi,
         name: 'Dynamic import with template literal'
-      }
+      },
+
+      // ── New patterns added 2026 ──────────────────────────────────────────
+
+      // XMLHttpRequest — classic data-exfiltration vector
+      { pattern: /XMLHttpRequest/gi, name: 'XMLHttpRequest usage' },
+
+      // fetch() to external URLs (only fetch('/api/...') is permitted)
+      { pattern: /fetch\s*\(\s*['"`]https?:\/\//gi, name: 'fetch() to external URL' },
+
+      // Browser storage exfiltration
+      { pattern: /localStorage|sessionStorage|indexedDB/gi, name: 'Browser storage access' },
+
+      // Document dangerous properties
+      { pattern: /document\.(cookie|write|writeln|location|domain|referrer)/gi, name: 'Dangerous document property access' },
+
+      // Window object — redirect, navigation, popups
+      { pattern: /window\.(location|open|navigate|top|parent|opener)/gi, name: 'Window object manipulation' },
+
+      // Prototype pollution
+      { pattern: /__proto__|prototype\s*\[/gi, name: 'Prototype pollution attempt' },
+
+      // WebSocket — background exfiltration channel
+      { pattern: /new\s+WebSocket\s*\(/gi, name: 'WebSocket connection' },
+
+      // Browser fingerprinting
+      { pattern: /navigator\.(userAgent|platform|language|geolocation|sendBeacon)/gi, name: 'Browser fingerprinting' },
+
+      // Base64 obfuscation via Buffer
+      { pattern: /Buffer\.from\s*\(.*['"](base64)['"]/gi, name: 'Buffer base64 decode (obfuscation risk)' },
+
+      // Cross-origin communication
+      { pattern: /\.postMessage\s*\(/gi, name: 'postMessage cross-origin communication' },
 
     ];
 
