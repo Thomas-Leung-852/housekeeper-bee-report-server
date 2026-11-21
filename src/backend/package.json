@@ -37,6 +37,7 @@
     "react": "^19.2.3",
     "react-barcode": "^1.6.1",
     "react-dom": "^19.2.3",
+    "undici": "^8.12.4",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

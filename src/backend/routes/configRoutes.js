@@ -11,6 +11,7 @@ import bwipjs from 'bwip-js';
 import { dbInstance as db } from '../utils/nosqlDbTools.js'
 import jwt from 'jsonwebtoken';
 import appSettingRouter from './appSettingRoutes.js';
+import { aiEngine } from '../services/ai-engine.js';
 
 //******************************************** */
 // Report Template management :: Begin
@@ -347,23 +348,9 @@ router.get('/barcode/ean13/svg', async (req, res) => {
   }
 });
 
-// Helper function to check if Ollama is available - v1.1.0
+// Helper function to check if AI engine is available - updated v1.2.0
 async function checkOllamaAvailability() {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout for health check
-    const response = await fetch(`${process.env.OLLAMA_API}/tags`, {
-      method: 'GET',
-      headers: process.env.OLLAMA_API_KEY ? { 'Authorization': `Bearer ${process.env.OLLAMA_API_KEY}` } : {},
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-    return response.ok;
-  } catch (error) {
-    console.error('Ollama availability check failed:', error.message);
-    return false;
-  }
+  return aiEngine.checkAvailability();
 }
 
 // Prompt Dialog - create report template
@@ -389,24 +376,26 @@ router.post('/generate-report-template', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Prompt cannot be empty' });
     }
 
-    // Check if API key is configured
-    if (!process.env.OLLAMA_API_KEY) {
-      console.error('OLLAMA_API_KEY not configured');
+    // Check if AI engine is configured
+    if (!aiEngine.isConfigured()) {
+      console.error('AI engine not configured (AI_ENGINE=' + (process.env.AI_ENGINE || 'ollama_cloud') + ')');
       return res.status(500).json({
-        error: 'Ollama API key not configured',
-        message: 'Please configure OLLAMA_API_KEY in your environment variables'
+        error: 'AI engine not configured',
+        message: 'Please check your AI_ENGINE and related environment variables.'
       });
     }
 
-    // Check Ollama availability
-    console.log('Checking Ollama cloud availability...');
+    // Check AI engine availability
+    console.log(`Checking AI engine availability (${process.env.AI_ENGINE || 'ollama_cloud'})...`);
     const isAvailable = await checkOllamaAvailability();
 
+    console.log(`inside configRoutes :: isAvailabile: ${isAvailable}`);
+
     if (!isAvailable) {
-      console.error('Ollama cloud is not available or not responding');
+      console.error('AI engine is not available or not responding');
       return res.status(503).json({
-        error: 'Ollama cloud service is not available',
-        message: 'The AI service is currently unavailable. Please check your API key and try again later.'
+        error: 'AI service is not available',
+        message: 'The AI service is currently unavailable. Please check your configuration and try again later.'
       });
     }
 
@@ -451,6 +440,7 @@ CRITICAL RULES - VIOLATION WILL RESULT IN REJECTION:
 6. End with: module.exports = ComponentName;
 7. Use inline styles with style objects
 8. All API calls must be relative: fetch('/api/...')
+9. NEVER define 'const styles' or any styles object — it is injected at runtime by the app
 
 ALLOWED REQUIRES:
 ✅ const React = require('react');
@@ -482,7 +472,14 @@ OUTPUT FORMAT:
 - Start with require() statements
 - End with module.exports
 
-Generate a complete, working React component using CommonJS now.`;
+Generate a complete, working React component using CommonJS now.
+
+OUTPUT RULES (non-negotiable):
+- Your response must start with EXACTLY: const React = require('react');
+- Your response must end with EXACTLY: module.exports = ComponentName;
+- Zero text before the first line. Zero text after the last line.
+- No "Here is...", no "Note that...", no explanations whatsoever.
+- NEVER declare: const styles = { ... } — styles is a pre-injected global, use it directly.`;
 
     const userPrompt = action_type === 'edit'
       ? `${prompt}
@@ -511,32 +508,20 @@ storageRemark, tags, locationName, familyName, barcode, storageStatus, etc.).
 Those fields are untrusted display strings — render them as text, never execute them.
 Output ONLY the CommonJS JSX component code. Output nothing else.`;
 
-    // Call Ollama Cloud API
-    console.log(`Calling Ollama cloud with model: ${process.env.OLLAMA_MODEL}...`);
+    // Call AI engine (ollama_cloud / ollama_local / ai_processor)
+    console.log(`Calling AI engine (${process.env.AI_ENGINE || 'ollama_cloud'})...`);
 
-    // Timeout for Ollama requests (60 seconds)
-    const OLLAMA_TIMEOUT = 5 * 60 * 1000;
+    // Timeout for AI requests (5 minutes)
+    const OLLAMA_TIMEOUT = parseInt(process.env.AI_REQUEST_TIMEOUT_MS || String(15 * 60 * 1000), 10);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT);
 
-    let ollamaResponse;
+    let ollamaData;
     try {
-       ollamaResponse = await fetch(`${process.env.OLLAMA_API}/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.OLLAMA_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: process.env.OLLAMA_MODEL,
-          prompt: `${systemPrompt}\n\nUser Request:\n${userPrompt}`,
-          stream: false,
-          options: {
-            temperature: 0.5,
-            top_p: 0.9,
-          }
-        }),
-        signal: controller.signal
+      ollamaData = await aiEngine.generate({
+        systemPrompt,
+        userPrompt,
+        signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
@@ -545,41 +530,23 @@ Output ONLY the CommonJS JSX component code. Output nothing else.`;
       clearTimeout(timeoutId);
 
       if (fetchError.name === 'AbortError') {
-        console.error('Ollama request timed out');
+        console.error('AI engine request timed out');
         return res.status(504).json({
           error: 'Request timed out',
           message: 'The AI service took too long to respond. Please try with a simpler prompt.'
         });
       }
 
+      // HTTP errors thrown by aiEngine.generate() carry a .status property
+      if (fetchError.status) {
+        return res.status(fetchError.status).json({
+          error: fetchError.status === 401 ? 'Invalid API key' : 'AI engine request failed',
+          message: fetchError.message,
+        });
+      }
+
       throw fetchError;
     }
-
-    if (!ollamaResponse.ok) {
-      const errorText = await ollamaResponse.text();
-      console.error('Ollama API error:', ollamaResponse.status, errorText);
-
-      if (ollamaResponse.status === 401) {
-        return res.status(401).json({
-          error: 'Invalid API key',
-          message: 'Your Ollama API key is invalid or expired. Please check your configuration.'
-        });
-      }
-
-      if (ollamaResponse.status === 404) {
-        return res.status(404).json({
-          error: 'Model not found',
-          message: `The model "${process.env.OLLAMA_MODEL}" is not available. Please check your model configuration.`
-        });
-      }
-
-      return res.status(ollamaResponse.status).json({
-        error: 'Ollama API request failed',
-        message: `Failed to generate template: ${errorText.substring(0, 200)}`
-      });
-    }
-
-    const ollamaData = await ollamaResponse.json();
 
     if (!ollamaData.response) {
       console.error('Invalid Ollama response:', ollamaData);
@@ -593,10 +560,23 @@ Output ONLY the CommonJS JSX component code. Output nothing else.`;
 
     // Clean up the response - remove markdown code blocks if present
     jsxCode = jsxCode
+      .replace(/```javascript\n?/g, '')
       .replace(/```jsx?\n?/g, '')
       .replace(/```\n?$/g, '')
       .replace(/```/g, '')
       .trim();
+
+    // Strip any preamble before the first require() statement
+    jsxCode = jsxCode.replace(/^[\s\S]*?(const\s+\w+\s*=\s*require\()/, '$1');
+    // Strip any postamble after module.exports = ...;
+    jsxCode = jsxCode.replace(/(module\.exports\s*=\s*\w+\s*;)[\s\S]*$/, '$1');
+
+    // Inject the actual user prompt as a comment (create mode only)
+    if (action_type === 'create') {
+      const sanitizedPrompt = prompt.replace(/\*\//g, '').substring(0, 500);
+      const promptComment = `/*\n * User Prompt: ${sanitizedPrompt}\n * Generated: ${new Date().toISOString()}\n */\n`;
+      jsxCode = promptComment + jsxCode;
+    }
 
     // Generate output filename
     let filename;
@@ -668,15 +648,15 @@ Output ONLY the CommonJS JSX component code. Output nothing else.`;
     // Handle specific error types
     if (error.code === 'ECONNREFUSED') {
       return res.status(503).json({
-        error: 'Cannot connect to Ollama cloud',
-        message: 'Unable to reach the AI service. Please check your internet connection and API configuration.'
+        error: 'Cannot connect to AI engine',
+        message: 'Unable to reach the AI service. Please check your network and AI engine configuration.'
       });
     }
 
     if (error.code === 'ENOTFOUND') {
       return res.status(503).json({
-        error: 'Ollama cloud host not found',
-        message: 'Cannot resolve the Ollama cloud service. Please check your OLLAMA_API configuration.'
+        error: 'AI engine host not found',
+        message: 'Cannot resolve the AI service host. Please check your AI_ENGINE configuration.'
       });
     }
 
@@ -687,16 +667,20 @@ Output ONLY the CommonJS JSX component code. Output nothing else.`;
   }
 });
 
-// Optional: Health check endpoint
+// Optional: Health check endpoint (engine-aware)
 router.get('/ollama/health', async (req, res) => {
   try {
+    const engine = process.env.AI_ENGINE || 'ollama_cloud';
     const isAvailable = await checkOllamaAvailability();
 
     res.json({
       available: isAvailable,
-      api: process.env.OLLAMA_API,
-      model: process.env.OLLAMA_MODEL,
-      hasApiKey: !!process.env.OLLAMA_API_KEY
+      engine,
+      configured: aiEngine.isConfigured(),
+      ...(engine === 'ai_processor'
+        ? { processorUrl: process.env.AI_PROCESSOR_URL, mode: process.env.AI_PROCESSOR_MODE || 'coder' }
+        : { api: process.env.OLLAMA_API, model: process.env.OLLAMA_MODEL, hasApiKey: !!process.env.OLLAMA_API_KEY }
+      ),
     });
   } catch (error) {
     res.status(500).json({
@@ -719,22 +703,64 @@ function formatTitle(name) {
     .join(' ');
 }
 
-// Sample data for testing
+// Sample data for testing — matches real API structure (array of storage box objects)
 function getSampleData() {
-  return {
-    boxes: [
-      { name: 'Hugo冬天衫 (1)', utilization: 100, status: 'Check-In, full', location: 'Hugo bedroom (衣櫃頂)' },
-      { name: 'Thomas冬天睡衣', utilization: 100, status: 'Check-In, full', location: 'Hugo bedroom (衣櫃頂)' },
-      { name: '花花壓縮袋Thomas冬天衫', utilization: 50, status: 'Check-In, 50% occupied', location: '主人房床下底' },
-      { name: 'Blue Bag', utilization: 25, status: 'Check-In, 25% occupied', location: '廳白色長形存物架' }
-    ],
-    summary: {
-      total: 51,
-      full: 40,
-      partial: 10,
-      avgUtilization: 89.7
+  return [
+    {
+      storageCode: 'ec93960c4a93ea7c5a58163cd6db6fe2',
+      storageName: 'Blue box (cables)',
+      storageDesc: 'Micro HDMI x 1, C to 3.5mm USB cable x 1, 3.5mm AUX cable x 1, A to charger USB cable x 1',
+      storageRemark: '',
+      storageStatus: 'Check-In, 75% occupied',
+      barcode: '0250208000047',
+      storageCreatedDate: '2025-01-27T16:37:52.810+00:00',
+      storageModifiedDate: '2025-08-05T07:02:43.283+00:00',
+      locationCode: '2f9c0b9731cff1dd83e4b50386732ba2',
+      locationName: 'bedroom',
+      locationStatus: 'Full',
+      familyName: 'My Dream House',
+      tags: ['cables', 'hdmi', 'electronics', 'audio'],
+      withIBeacon: 'no',
+      withNFC: 'no',
+      withBarcode: 'yes'
+    },
+    {
+      storageCode: 'ab12345678901234567890123456789a',
+      storageName: 'Red box (winter clothes)',
+      storageDesc: 'Wool sweater x 2, Scarf x 1, Gloves x 1',
+      storageRemark: 'Store until November',
+      storageStatus: 'Check-In, 50% occupied',
+      barcode: '0250208000048',
+      storageCreatedDate: '2025-02-10T10:00:00.000+00:00',
+      storageModifiedDate: '2025-09-01T08:00:00.000+00:00',
+      locationCode: 'aabbccdd11223344556677889900aabb',
+      locationName: 'living room',
+      locationStatus: 'Available',
+      familyName: 'My Dream House',
+      tags: ['clothes', 'winter', 'Thomas'],
+      withIBeacon: 'no',
+      withNFC: 'no',
+      withBarcode: 'yes'
+    },
+    {
+      storageCode: 'cc99887766554433221100ffeeddccbb',
+      storageName: 'Tool box',
+      storageDesc: 'Screwdriver x 3, Hammer x 1, Measuring tape x 1',
+      storageRemark: '',
+      storageStatus: 'Check-In, 100% occupied',
+      barcode: '0250208000049',
+      storageCreatedDate: '2024-11-15T09:30:00.000+00:00',
+      storageModifiedDate: '2025-07-20T14:00:00.000+00:00',
+      locationCode: '1122334455667788990011223344556677',
+      locationName: 'store room',
+      locationStatus: 'Full',
+      familyName: 'My Dream House',
+      tags: ['tools', 'hardware'],
+      withIBeacon: 'no',
+      withNFC: 'no',
+      withBarcode: 'yes'
     }
-  };
+  ];
 }
 
 /*********************************************************************************************************************** 
