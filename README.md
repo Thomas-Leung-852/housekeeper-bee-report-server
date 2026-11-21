@@ -33,6 +33,69 @@ While the report server includes foundational security checks—such as mitigati
 
 It will add a startup file to launch the report server when system boot up. And then you need update the .env file under the backend folder. 
 
+# AI Engine Modes
+
+The report server supports three AI processor destinations. **Only one mode can be active at a time.** Set `AI_ENGINE` in your `.env` file to choose one:
+
+| Mode | `AI_ENGINE` value | Runs On | Recommended |
+|---|---|---|---|
+| ☁️ Ollama Cloud | `ollama_cloud` | Ollama's official cloud | ✅ Default — best quality |
+| 🖥️ Local Machine | `ollama_local` | Same RPi 5 (4GB RAM) | ⚠️ Limited — not recommended |
+| 🌐 Remote AI Processor | `ai_processor` | Separate 32GB+ PC on network | ✅ Optional — best for privacy & offline use |
+
+<br>
+
+Set the `AI_ENGINE` value in your `.env` and comment out the other two blocks:
+
+### ☁️ Ollama Cloud (Default)
+No extra setup required. Uses `gpt-oss:120b-cloud` from Ollama's official cloud.
+
+> 📝 **Note:** Ollama Cloud is no longer free as of November 2026. The free tier (including the Starter plan) has been removed and replaced with pay-as-you-go and subscription plans. Please review [Ollama's pricing page](https://ollama.com/pricing) before use.
+
+```
+AI_ENGINE=ollama_cloud
+OLLAMA_API='https://ollama.com'
+OLLAMA_API_KEY='your_api_key_here'
+OLLAMA_MODEL='gpt-oss:120b-cloud'
+```
+
+### 🖥️ Local Machine
+Runs Ollama directly on the same RPi 5. Not recommended due to limited 4GB RAM.
+```
+AI_ENGINE=ollama_local
+OLLAMA_API=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+```
+> ⚠️ Performance will be significantly slower and output quality lower due to RPi 5's RAM constraints.
+
+### 🌐 Remote AI Processor *(Optional)*
+An optional separate project that offloads AI processing to a high-powered machine (32GB+ RAM) on your local network. The RPi 5 sends the request and receives the result back.
+```
+AI_ENGINE=ai_processor
+AI_PROCESSOR_URL=http://192.168.1.100:3000
+AI_PROCESSOR_KEY=mysecretkey
+AI_PROCESSOR_MODE=coder        # coder | thinking | default
+AI_CONTEXT_WINDOW=4096         # increase to 16384 for 16GB+ RAM
+```
+
+**AI Processor Modes:**
+
+| Mode | Model | RAM Required | Best For |
+|---|---|---|---|
+| `coder` ✅ | `gpt-oss:20b` | ~14 GB | JSX / code generation |
+| `thinking` | `deepseek-r1:14b` | ~10 GB | Complex reasoning |
+| `default` | `llama3.2:3b` | ~4 GB | General use |
+
+> 📦 Remote AI Processor is a separate project. See [repo link coming soon].
+
+**Architecture:**
+
+![Remote AI Processor Architecture](../src/images/architecture.svg)
+
+> 💡 Getting different results between local and cloud? See the [Optimization Guide](./optimization-guide.md).
+
+<br>
+
 # Setup
 
 ### Backend Server
@@ -51,14 +114,14 @@ cp .env.templete .env
 <br>
 Replace 192.168.50.102 to your IP.   
 
-![](https://static.wixstatic.com/media/0d7edc_810cba991dc34b5696c3e06d6384fea5~mv2.jpg)
+![](./images/env_template.png)
 
 
 ### Frontend Server
 - No configuration is required.
 
 
-### Linux - Change file wall setting
+### Linux - Change firewall setting
 
 allow 3801, 3800, 3801 and 5173    
 
@@ -168,66 +231,6 @@ Discover the user-friendly tools and techniques that will transform your reporti
 
 # Prompt
 
-Prompts can be find from the ***Docs*** folder.
-
-Sample
-```
-
-I want you create a very simple report to analysis my storage boxes usage in table format (column includes - #, location name, box name, barcode, number of item, storage items box status)
-
-
-A. Create a Housekeeper Bee report as a JSX component in CommonJS format.
-
-B. RAW Data structure (Input data) sample:
-{
-   storageCode: 'ec93960c4a93ea7c5a58163cd6db6fe2',
-   storageName: 'Blue box (cables)',
-   storageDesc: 'Micro HDMI x 1, C to 3.5mm USB cable x 1, 3.5mm AUX cable x 1, A to charger USB cable x 1',
-   storageRemark: '',
-   storageStatus: 'Check-In, 75% occupied',
-   barcode: '0250208000047',
-   storageCreatedDate: '2025-01-27T16:37:52.810+00:00',
-   storageModifiedDate: '2025-08-05T07:02:43.283+00:00',
-   locationCode: '2f9c0b9731cff1dd83e4b50386732ba2',
-   locationName: 'bedroom',
-   locationStatus: 'Full',
-   familyName: 'My Dream House',
-  tags: [ 'cables', 'hdmi', 'electronics', 'audio' ],
-  withNFC: 'no',
-  withIBeacon: 'no',
-  withBarcode: 'no'
-}
-
-C. RULES:
-- Add the date and time to the top right corner.
-- Storage items include: USB Type-A cable, charger, 5 x USB Type-C cables.
-- When grouping reports, use the tag field. Tags should be separated by commas (`,` or `，`).
-- For storage items, the notation "N x item" or "item x N" indicates quantity (e.g., "3 x Type-C cable" or "Type-C cable x 3" means the total number of Type-C cables is 3). If no multiplier is specified, it counts as 1 item.
-- Example of storage item count: 1 + 1 + 5.
-- Total storage item count: 7.
-- Finally, replace commas (`,` or `，`) in the storage item field with a line break. Add an asterisk (`*`) before each processed storage item.
-
-D. STYLING RULES:
-- Use the "styles" object (will be injected by server)
-- Available styles: container, header, subtitle, statCard, cardTotal, cardSuccess, cardWarning, cardDanger, cardInfo, statNumber, statLabel, table, tableHeader, th, td, progressBar, bar, bar100, bar75, bar50, bar25, bar0
-- Do NOT define the styles object yourself
-- Use inline styles: style={styles.container}
-- Combine styles: style={{...styles.statCard, ...styles.cardSuccess}}
-
-E. COMPONENT FORMAT:
-- Accept props: { data }
-- Export as: module.exports = ComponentName
-- Use React.createElement or JSX
-
-Embed the code generated in the JSX component to transform the raw JSON data from the RESTful API into the desired report data structure in JSON format.
-
-For example, you call the MCP server tools to retrieve the raw data from Housekeeper Bee. Then, you use this data to transform it into the required report data structure.
-
-F. IMPORTANT: 
-- Please embed the code within a JSX component to handle the data structure transformation.
-- Do not use useEffect
-
-```
 
 ### Prompt Example: Creating Interactive HTML Storage Reports
 
@@ -262,16 +265,20 @@ npm run prod
 ```
 <br>
 
-# Known Issues
 
-After saving the code as a JSX file for deployment, you need to check for issues that may occasionally occur.
 
-1. *const StorageTagAnalysis = ({ data<font color='#0F0'>, styles </font> }) => {*   
-   Sometimes, Claude adds styles at line 2. You should manually remove the <font color="#f00">styles</font>.
-
-2. <font color='#0F0'>*export default StorageBoxReport*</font> should be changed to     
-   <font color='#f00'>module.exports = StorageBoxReport;</font>
-
+# Prompting Tips for Report Customisation
+*Add these terms to your prompt to change the structure or build in function of your report.*
+- Add/Remove Filtering 
+- Add table record counter with label 'Number of Records'
+- Remove table record counter
+- Rename 2nd filter caption to '*{New caption}*'
+- Add identifier (IBeacon/NFC/Barcode) flag to the report before the ***{column name}***    
+e,g. Add identifier (IBeacon/NFC/Barcode) flag to the report before the 'View' column. show '✘', if empty or 'None'
+- Total number of stored item (example, 'item ABC x 3' = 3). 
+- A hyperlink to open the storage box, format like "**http𝐬://192.168.30.199:8443/storages/search/storage/storagecode/{STORAGE_BOX_CODE}</text>" .
+- Filter 4th and filter label add HTML style 'style="visibility:hidden;"'
+- Add 'Storage Box Name' filter, 'Total Items' filter and 'Location Name' filter. they are grouping in the same row. Add 5px space between filters.
 
 <br>
 
@@ -290,6 +297,7 @@ Household Items Management Features:
 - Custom Reporting: Our newly developed report server empowers users to generate customized reports based on specific prompts. With the capabilities of the Claude Desktop AI assistant, creating your favorite report has never been easier.   
   
 Ready to take control of your storage solutions? Download the app today and experience the convenience for yourself! For more information, visit our website. Please check out my GitHub repository: https://github.com/Thomas-Leung-852.
+
 
 
 

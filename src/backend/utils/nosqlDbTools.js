@@ -46,7 +46,7 @@ class NosqlDbTools {
                 // Document does not exist, insert new document
                 this.insertDocument(data);
             } else {
-                console.log('Document already exists:', data);
+                //console.log('Document already exists:', data);
             }
         });
     };

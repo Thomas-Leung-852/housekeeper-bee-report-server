@@ -11,25 +11,27 @@ A. Create a Housekeeper Bee report as a JSX component in CommonJS format.
 - Include the user prompt in code comment.    
 - Include report sub-title follow the "Housekeeper Bee Report", if the sub-title not provided, you should create a sub-title for the report.
 
-B. RAW Data structure (Input data) sample:   
-{   
-   storageCode: 'ec93960c4a93ea7c5a58163cd6db6fe2',   
-   storageName: 'Blue box (cables)',   
-   storageDesc: 'Micro HDMI x 1, C to 3.5mm USB cable x 1, 3.5mm AUX cable x 1, A to charger USB cable x 1',   
-   storageRemark: '',   
-   storageStatus: 'Check-In, 75% occupied',   
-   barcode: '0250208000047',   
-   storageCreatedDate: '2025-01-27T16:37:52.810+00:00',   
-   storageModifiedDate: '2025-08-05T07:02:43.283+00:00',   
-   locationCode: '2f9c0b9731cff1dd83e4b50386732ba2',   
-   locationName: 'bedroom',   
-   locationStatus: 'Full',   
-   familyName: 'My Dream House',   
-  tags: [ 'cables', 'hdmi', 'electronics', 'audio' ],   
-   withIBeacon: 'no',
-   withNFC: 'no',
-   withBarcode: 'no'
-}   
+B. RAW Data structure (Input data) sample:
+[
+  {
+    storageCode: 'ec93960c4a93ea7c5a58163cd6db6fe2',
+    storageName: 'Blue box (cables)',
+    storageDesc: 'USB cable, HDMI cable x 10, CD ROM',
+    storageStatus: 'Check-In, 75% occupied',
+    barcode: '0250208000047',
+    storageCreatedDate: '2025-01-27T16:37:52.810+00:00',
+    storageModifiedDate: '2025-08-05T07:02:43.283+00:00',
+    locationCode: '2f9c0b9731cff1dd83e4b50386732ba2',
+    locationName: 'bedroom',
+    locationStatus: 'Full',
+    familyName: 'My Dream House',
+    tags: ['cables', 'hdmi', 'electronics'],
+    withIBeacon: 'no',
+    withNFC: 'no',
+    withBarcode: 'no'
+  },
+  { ... second item ... }
+]  
 
 C. RULES:
 - Include date and time at the top right corner.
@@ -87,16 +89,21 @@ javascript
 ```
 
 H. Table Sorting:
-- Use id="sortableTable" and implement table column sorting without document.getElementById.
+- All sortable tables MUST have an id prefixed with "sortableTable_" followed by a sequential number, 
+  starting from 1. e.g. id="sortableTable_1", id="sortableTable_2", id="sortableTable_3".
+- Each column header MUST use a <th> element. Do NOT add <a> tags inside headers.
+- Do NOT implement sorting logic — sorting is injected externally via <th> click events after render.
 
-I. Table Filtering: 
-- Render the following HTML code:
-```
-    <label for='filter-select'>Filter by:</label>
-    <select id='filter-select' style='maxWidth: 900px;'>
-        <option value=''>All</option> 
-    </select>
-```
+I. Table Filtering:
+- Render one filter dropdown per sortable table, placed immediately above it.
+- Use sequential ids: filter-select-1, filter-select-2, etc.
+- Required attributes: data-table (target table id), data-col (zero-based column index to filter).
+- Do NOT add <option> tags.
+- Example:
+    <div id='filterArea_1'>
+      <label htmlFor='filter-select-1'>Filter by:</label>
+      <select id='filter-select-1' data-table='sortableTable_1' data-col='2' style={{ maxWidth: '300px' }}></select>
+    </div>
 
 J. when compare the box or location status, use the following check sequence:
 ```   
@@ -168,3 +175,11 @@ O. Forbidden Patterns - NEVER USE:
 - ❌ `process.exit()`, `process.env`, `process.kill()`
 - ❌ File operations (fs.unlink, fs.writeFile, etc.)
 - ❌ ES6 import/export syntax
+
+P. Each table has a label that displays the total number of rows. 
+   The id of the label MUST use the prefix "tableRrdCnt_" with the table id as the suffix. 
+   e.g. for id="sortableTable_1" → label id="tableRrdCnt_sortableTable_1"
+            for id="sortableTable_2" → label id="tableRrdCnt_sortableTable_2"
+   add '<div class="page-break-after"></div>' after the 'Total number of rows'
+
+

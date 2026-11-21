@@ -1,5 +1,16 @@
 # RELEASE NOTE
 
+## Version: v1.5.0
+Release Date: 2026/11/??
+
+### New (Pending)
+- Support Remote AI processor. This version support Ollama Cloud, Ollama local and Remote high performance server with 32GB (CPU) to run the Ollama local model (such as gpt-oss:20b)
+
+### Modified
+Report Template Manager
+- View JSX source to get the user prompt from comment
+- Add sorting by file size and create date 
+
 ## Version: v1.4.0
 Release Date: 2026/11/09
 
