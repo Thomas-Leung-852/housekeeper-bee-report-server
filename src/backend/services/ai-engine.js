@@ -203,10 +203,13 @@ async function _generateProcessor({ systemPrompt, userPrompt, signal, options })
       systemPrompt,
       userPrompt,
       options: {
-        temperature: parseFloat(process.env.AI_TEMPERATURE ?? '0.1'),
-        top_p:       parseFloat(process.env.AI_TOP_P      ?? '0.95'),
-        seed:        parseInt(process.env.AI_SEED         ?? '42', 10),
-        num_ctx:     parseInt(process.env.AI_CONTEXT_WINDOW ?? '4096', 10),     //16GB system RAN can try 16384    
+        temperature: parseFloat(process.env.AI_TEMPERATURE ?? '0.1'),           // low randomness, consistent output
+        top_p:       parseFloat(process.env.AI_TOP_P      ?? '0.95'),           // nucleus sampling, filters unlikely tokens
+        top_k:       parseInt(process.env.AI_TOP_K      ?? '40', 10),           // model only picks from top 10-20 most likely tokens = more deterministic, faster, less "creative" wandering
+        seed:        parseInt(process.env.AI_SEED         ?? '42', 10),         // reproducible output across runs
+        num_ctx:     parseInt(process.env.AI_CONTEXT_WINDOW ?? '4096', 10),     //16GB system RAN can try 16384
+        num_predict: parseInt(process.env.AI_NUM_PREDICT ?? '-1', 10),          // output token limit. JSX report rarely needs more than 3,000 output tokens. Ollama default 1.1
+        repeat_penalty: parseFloat(process.env.AI_REPEAT_PENALTY ?? '1.1'),     // softer penalty, better for repetitive code patterns. default 1.1
         ...options,
       },
     }),

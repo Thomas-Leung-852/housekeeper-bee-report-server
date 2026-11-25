@@ -43,6 +43,7 @@ C. RULES:
 - When grouping reports, use the tag field. Tags should be separated by commas (`,` or `，`).
 - For storage items, the notation "N x item" or "item x N" indicates quantity (e.g., "3 x Type-C cable" or "Type-C cable x 3" means the total number of Type-C cables is 3). If no multiplier is specified, it counts as 1 item.
 - Replace commas(`,` or `，`)  in storage items with line breaks and add an asterisk before each item.
+- table 1st column always show sequnence number
 
 D. STYLING RULES:
 - Use the global "styles" object; do not define it in the component.
@@ -51,6 +52,9 @@ D. STYLING RULES:
 - Combine styles: style={{...styles.statCard, ...styles.cardSuccess}}
 - Do NOT define the styles object yourself - it will be injected at runtime
 - Do NOT include styles as a component prop
+- Report title font size 20px
+- Report subtitle font size 16px
+- Report profile font size 12px 
 
 E. COMPONENT FORMAT:
 - Accept ONLY one prop: { data }

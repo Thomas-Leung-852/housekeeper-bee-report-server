@@ -1,9 +1,17 @@
 # RELEASE NOTE
 
-## Version: v1.5.0
-Release Date: 2026/11/??
+## Version: v1.5.1
+Release Date: 2026/11/25
 
-### New (Pending)
+### Bug fixed
+- fixed user prompt suffix :: font size of the Report title, sub-title and report detail 
+- added model parameters to improve performance.
+
+
+## Version: v1.5.0
+Release Date: 2026/11/21
+
+### New
 - Support Remote AI processor. This version support Ollama Cloud, Ollama local and Remote high performance server with 32GB (CPU) to run the Ollama local model (such as gpt-oss:20b)
 
 ### Modified

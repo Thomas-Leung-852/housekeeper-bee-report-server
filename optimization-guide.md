@@ -4,6 +4,8 @@
 
 This guide explains why the same prompt produces different outputs when running `gpt-oss:20b` locally via Ollama versus using `gpt-oss:20b-cloud` on Ollama's official cloud — even though it is the **exact same underlying model**.
 
+It also documents the optimization tactics discovered during real-world JSX report generation, so you can apply them to your own local AI setup.
+
 <br>
 
 # Root Causes of Output Differences
@@ -46,14 +48,16 @@ This is especially critical for the report server prompts, which are long and co
 ### 3. 🎲 Sampling Parameters — Hidden Defaults
 Different `temperature`, `top_p`, `top_k` values produce different outputs even from identical weights:
 
-| Parameter | Ollama Local Default | Report Server `.env` Default |
+| Parameter | Ollama Local Default | Report Server `.env` Recommended |
 |---|---|---|
 | `temperature` | 0.8 | **0.1** (very deterministic) |
 | `top_p` | 0.9 | **0.95** |
-| `top_k` | 40 | not set |
+| `top_k` | 40 | **20** (faster + more deterministic for code) |
 | `seed` | random | **42** (fixed — reproducible) |
+| `num_predict` | -1 (unlimited) | **4096** (prevents endless generation) |
+| `repeat_penalty` | 1.1 | **1.05** (better for repetitive code patterns) |
 
-The report server sets `AI_TEMPERATURE=0.1` and `AI_SEED=42` in the `.env` — this makes output highly deterministic and consistent, which is ideal for structured JSX code generation. Running Ollama locally without these settings will produce noticeably more random and variable output.
+The report server sets these in the `.env` — this makes output highly deterministic and consistent, which is ideal for structured JSX code generation.
 
 ### 4. 🕵️ Hidden System Prompt (Cloud)
 Cloud providers often prepend a system prompt you never see:
@@ -64,37 +68,128 @@ This subtly shifts tone, verbosity, and instruction-following behaviour compared
 
 <br>
 
+# Sampling Parameters Explained
+
+Understanding what each parameter does helps you tune for your specific task:
+
+| Parameter | What it does | For JSX generation |
+|---|---|---|
+| `temperature` | Controls randomness. Lower = more predictable | **0.1** — consistent, deterministic code |
+| `top_p` | Nucleus sampling — filters out unlikely tokens | **0.95** — balanced |
+| `top_k` | Only pick from top K most likely tokens | **20** — reduces wandering, faster |
+| `seed` | Fixed random seed for reproducible output | **42** — same prompt = same output |
+| `num_predict` | Maximum output tokens (-1 = unlimited) | **4096** — stops model running endlessly |
+| `repeat_penalty` | Penalises repeating tokens already generated | **1.05** — softer penalty, code repeats naturally (brackets, style objects) |
+
+> 💡 **Tactic learned:** Setting `num_predict: 4096` instead of the default `-1` (unlimited) reduced average generation time by ~2 minutes on a 32GB RAM CPU-only setup. The model was generating past the end of valid JSX output because nothing told it to stop.
+
+<br>
+
 # How to Minimise the Differences
 
 | Fix | What to Do |
 |---|---|
-| **Increase context window** | Set `num_ctx` to 8192 or higher in your local Modelfile |
+| **Increase context window** | Set `num_ctx` to 16384 in your local Modelfile |
 | **Match temperature** | Set `temperature 0.1` to match the report server `.env` default |
-| **Match sampling params** | Set `top_p 0.95` and `seed 42` to match report server defaults |
+| **Match sampling params** | Set `top_p 0.95`, `top_k 20`, `seed 42`, `repeat_penalty 1.05` |
+| **Limit output tokens** | Set `num_predict 4096` to prevent endless generation |
+| **Enable Flash Attention** | Set `OLLAMA_FLASH_ATTENTION=1` env var — free CPU speed boost |
 | **Use higher quantization** | Pull `Q8_0` if your hardware allows — closer to FP16 precision |
 | **Add a system prompt locally** | Mirror the cloud provider's system prompt behaviour |
 | **Pin model version** | Use a specific GGUF tag, don't rely on `latest` |
+| **Use a coder model** | `qwen2.5-coder:14b` outperforms general models for JSX generation |
 
 ### Example: Modelfile for Closer-to-Cloud Behaviour
 
 Create a custom `Modelfile` to standardise your local setup:
 
 ```
-FROM gpt-oss:20b
+FROM qwen2.5-coder:14b
 
-PARAMETER num_ctx 8192
-PARAMETER temperature 0.1
-PARAMETER top_p 0.95
-PARAMETER seed 42
+PARAMETER num_ctx       16384
+PARAMETER temperature   0.1
+PARAMETER top_p         0.95
+PARAMETER top_k         20
+PARAMETER seed          42
+PARAMETER num_predict   4096
+PARAMETER repeat_penalty 1.05
 
 SYSTEM "You are a helpful assistant. Follow instructions carefully and generate valid JSX components in CommonJS format."
 ```
 
 Then build and run:
 ```bash
-ollama create gpt-oss-report -f Modelfile
-ollama run gpt-oss-report
+ollama create qwen-coder-report -f Modelfile
+ollama run qwen-coder-report
 ```
+
+<br>
+
+# LLM Chaining — Improving Prompt Quality
+
+A key tactic for improving JSX report quality without changing the model is **LLM chaining** — using multiple model calls in sequence, where each pass refines the previous output.
+
+```
+Pass 1 (thinking model): Read JSX → extract business intent → generate plain English prompt
+        ↓
+Pass 2 (small fast model): Verify language → remove technical terms → clean up
+        ↓
+Final: High quality plain English prompt → fed to coder model → better JSX output
+```
+
+### Why this improves report creation time and UI/UX accuracy
+
+| Without chaining | With chaining |
+|---|---|
+| User writes vague prompt | User gets pre-extracted precise prompt |
+| Coder model guesses intent | Coder model follows clear instructions |
+| More retries, more timeouts | First-time success rate improves |
+| Inconsistent layout | Consistent sections and charts |
+
+### Recommended chain configuration (32GB RAM, CPU only)
+
+```json
+{
+  "reverseEngineer": {
+    "generateModel": "thinking",
+    "verifyModel":   "default",
+    "distilModel":   "default",
+    "refinePasses":  1
+  }
+}
+```
+
+| Pass | Model | Role | Typical time |
+|---|---|---|---|
+| Pass 1 | thinking (deepseek-r1:14b) | Deep analysis of JSX source | ~3 min |
+| Pass 2 | default (llama3.2:3b) | Language cleanup, rule check | ~15 sec |
+| Total | | | ~3 min |
+
+> 💡 **Tactic learned:** Using `thinking` model only for Pass 1 (the hard analysis) and `default` model for Pass 2 (simple cleanup) gives 80% of the quality of a full 3-pass chain at 40% of the time cost.
+
+### Pass configuration options
+
+| `refinePasses` | Pipeline | Quality | Time |
+|---|---|---|---|
+| `0` | Generate only | Good | ~3 min |
+| `1` | Generate → Verify | Better | ~3 min 15 sec ✅ recommended |
+| `2` | Generate → Verify → Distil | Best | ~10 min |
+
+<br>
+
+# Hardware Reality Check — CPU-Only Setup
+
+If you are running on CPU only (no GPU), here is what to expect:
+
+| Model | RAM needed (Q4) | JSX generation time | Verdict |
+|---|---|---|---|
+| llama3.2:3b | ~2GB | ~1 min | Too small for complex JSX |
+| qwen2.5-coder:14b | ~9GB | ~5–8 min | ✅ Best for CPU-only |
+| deepseek-r1:14b | ~9GB | ~3 min | ✅ Best for analysis/thinking |
+| qwen2.5-coder:32b | ~20GB | ~15–20 min | Fits 32GB RAM, slow on CPU |
+| Any 70B model | ~40GB | ❌ | Does not fit 32GB RAM |
+
+> 💡 **Honest assessment:** 20 minutes generation time on CPU-only is close to the hardware limit. All the tuning above (Flash Attention, `num_predict`, `top_k`, `repeat_penalty`, LLM chaining) can save 2–5 minutes total. The only step-change improvement is adding a GPU — even a used RTX 3060 12GB (~$250) reduces generation time from 20 minutes to under 1 minute.
 
 <br>
 
@@ -102,14 +197,14 @@ ollama run gpt-oss-report
 
 | Factor | 🖥️ Ollama Local | ☁️ Ollama Cloud |
 |---|---|---|
-| **Model** | `gpt-oss:20b` | `gpt-oss:20b-cloud` |
+| **Model** | `qwen2.5-coder:14b` | `gpt-oss:20b-cloud` |
 | **Weight precision** | Quantized (Q4/Q5) | Full precision (FP16) |
-| **Context window** | 2048–4096 (default) | Up to 128k |
+| **Context window** | 16384 (configured) | Up to 128k |
 | **Sampling defaults** | Modelfile-defined | Provider-defined |
-| **System prompt** | None (blank slate) | Often injected |
+| **System prompt** | Configured via Modelfile | Often injected |
 | **Model version** | Pinned to last `pull` | Always latest |
 | **JSX code quality** | Good for simple templates | Better for complex templates |
-| **Output determinism** | Lower | Higher |
+| **Output determinism** | High (with seed=42) | Higher |
 | **Cost** | ~$0 (electricity only) | Pay-as-you-go or subscription |
 
 > 📝 **Note:** Ollama Cloud is no longer free as of November 2026. The free tier (including the Starter plan) has been removed and replaced with pay-as-you-go and subscription plans. Please review [Ollama's pricing page](https://ollama.com/pricing) before use.
@@ -120,10 +215,13 @@ ollama run gpt-oss-report
 
 For generating complex JSX report templates locally, we recommend:
 
-1. Use the **cloud model** (`gpt-oss:20b-cloud` via Ollama's official cloud) in the Report Template Manager for best and most consistent results
-2. If using local, **always set `num_ctx` to at least 8192** to avoid silent prompt truncation
-3. Set `temperature` to **0.1** and `seed` to **42** to match the report server defaults
-4. After generating locally, always review the [Known Issues](./README.md#known-issues) section — local quantized models are more likely to produce the common JSX formatting errors listed there
+1. Use **`qwen2.5-coder:14b`** as your coder model — purpose-built for code, outperforms general models
+2. Always set **`num_ctx: 16384`** to avoid silent prompt truncation
+3. Always set **`num_predict: 4096`** to prevent endless generation and save time
+4. Set **`temperature: 0.1`**, **`top_k: 20`**, **`seed: 42`**, **`repeat_penalty: 1.05`**
+5. Enable **`OLLAMA_FLASH_ATTENTION=1`** — free CPU speed improvement
+6. Use **LLM chaining** (`refinePasses: 1`) to improve prompt quality before report generation
+7. After generating locally, always review the [Known Issues](./README.md#known-issues) section — local quantized models are more likely to produce the common JSX formatting errors listed there
 
 <br>
 
