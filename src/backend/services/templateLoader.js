@@ -206,10 +206,13 @@ export async function listTemplates() {
       .filter(file => file.endsWith('.jsx'))
       .map(file => path.join(TEMPLATE_DIR, file)); // Get full paths for use in getFileHash
 
-    // Wait for all hash computations
+    // Wait for all hash computations (also grab mtime for sort-by-date)
     const fileData = await Promise.all(templateFiles.map(async (filePath) => {
-      const fileHash = await getFileHash(filePath);
-      return { templateName: path.basename(filePath, '.jsx'), fileHash };
+      const [fileHash, stats] = await Promise.all([
+        getFileHash(filePath),
+        fs.stat(filePath),
+      ]);
+      return { templateName: path.basename(filePath, '.jsx'), fileHash, mtime: stats.mtime };
     }));
 
     return fileData;

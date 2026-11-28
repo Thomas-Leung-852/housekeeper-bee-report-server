@@ -117,21 +117,24 @@ async function checkAvailability() {
 // Replaces the fetch block + ollamaResponse.ok check + .json() in configRoutes.js.
 //
 // @param {object} opts
-//   systemPrompt  {string}
-//   userPrompt    {string}
-//   signal        {AbortSignal}  – pass controller.signal for timeout support
-//   options       {object}       – model params (temperature, top_p …)
+//   systemPrompt   {string}
+//   userPrompt     {string}
+//   signal         {AbortSignal}  – pass controller.signal for timeout support
+//   options        {object}       – model params (temperature, top_p …)
+//   processorMode  {string|null}  – optional per-request mode override for
+//                                   ai_processor (e.g. 'coder-small').
+//                                   Ignored for ollama_cloud / ollama_local.
 //
 // @returns {Promise<{ response: string }>}
 // @throws  Error with descriptive message on HTTP errors (401, 404, 5xx …)
 
-async function generate({ systemPrompt = '', userPrompt = '', signal, options = {} }) {
+async function generate({ systemPrompt = '', userPrompt = '', signal, options = {}, processorMode = null }) {
   switch (ENGINE) {
     case 'ollama_cloud':
     case 'ollama_local':
       return _generateOllama({ systemPrompt, userPrompt, signal, options });
     case 'ai_processor':
-      return _generateProcessor({ systemPrompt, userPrompt, signal, options });
+      return _generateProcessor({ systemPrompt, userPrompt, signal, options, processorMode });
     default:
       throw new Error(`Unknown AI_ENGINE value: "${ENGINE}". Use ollama_cloud, ollama_local, or ai_processor.`);
   }
@@ -189,9 +192,11 @@ async function _generateOllama({ systemPrompt, userPrompt, signal, options }) {
 
 // ── AI Processor backend ──────────────────────────────────────────────────────
 
-async function _generateProcessor({ systemPrompt, userPrompt, signal, options }) {
+async function _generateProcessor({ systemPrompt, userPrompt, signal, options, processorMode = null }) {
   const url = `${processorBase()}/process/batch`;
-  const mode = process.env.AI_PROCESSOR_MODE || 'coder'; // coder is best for JSX
+  // processorMode (from the per-request dropdown) takes priority over the env default.
+  const mode = processorMode || process.env.AI_PROCESSOR_MODE || 'coder';
+  console.log(`[ai-engine] processor mode: ${mode}${processorMode ? ' (per-request override)' : ' (env default)'}`);
 
   const res = await fetch(url, {
     method: 'POST',

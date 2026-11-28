@@ -1,4 +1,25 @@
 # RELEASE NOTE
+## Version: v1.6.0
+Release Date: 2026/11/28
+
+### New
+
+#### 1. Create Report Template Dialog    
+- Added the ability to import user prompt files.   
+
+- Enabled the AI Processor to select coder models.    
+
+#### 2. Template Manager    
+- Added prompt inversion and prompt chaining (powered by the AI Processor), allowing users to reverse-engineer JSX source code files into plain-text business language.   
+
+- Added sorting by file size and upload date.   
+
+#### 3. Template List   
+- Added sorting by Name and Last Modified Date.   
+
+<br>
+
+***Setup: Download the AI Processor from https://github.com/Thomas-Leung-852/Remote-AI-Processor.git, then copy the new environment variables from .env.template into your .env file to enable it.***
 
 ## Version: v1.5.1
 Release Date: 2026/11/25

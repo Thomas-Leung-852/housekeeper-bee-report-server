@@ -11,6 +11,7 @@ import bwipjs from 'bwip-js';
 import { dbInstance as db } from '../utils/nosqlDbTools.js'
 import jwt from 'jsonwebtoken';
 import appSettingRouter from './appSettingRoutes.js';
+import invertTemplateRouter from './invertTemplateRoute.js';
 import { aiEngine } from '../services/ai-engine.js';
 
 //******************************************** */
@@ -94,6 +95,9 @@ const router = express.Router();
 // Application Setting :: Security, timeout
 router.use('/app-settings', appSettingRouter);
 
+// Prompt Inversion — analyse a JSX template and return a plain-English prompt
+router.use('/', invertTemplateRouter);
+
 // Session token verification
 const verifyToken = (req, res, next) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
@@ -124,8 +128,23 @@ router.get('/decode/:sessionToken', (req, res) => {
 
 // Safe config endpoint - only non-sensitive data
 router.get('/config', (req, res) => {
+  const engine = (process.env.AI_ENGINE || 'ollama_cloud').toLowerCase();
+  const processorMode = (process.env.AI_PROCESSOR_MODE || 'coder').toLowerCase();
+
+  // Determine whether the frontend should show a model-size dropdown.
+  // Only shown for ai_processor when the base mode is 'coder' or 'thinking'
+  // (i.e. the admin has NOT already locked in the small model).
+  const dropdownBase =
+    engine === 'ai_processor' && ['coder', 'thinking'].includes(processorMode)
+      ? processorMode   // 'coder' | 'thinking'
+      : null;           // null → no dropdown
+
   res.json({
-    HOUSEKEEPER_BEE_RETURN_URL: process.env.HOUSEKEEPER_BEE_RETURN_URL
+    HOUSEKEEPER_BEE_RETURN_URL: process.env.HOUSEKEEPER_BEE_RETURN_URL,
+    AI_ENGINE: engine,
+    AI_PROCESSOR_MODE: processorMode,
+    // null = hide dropdown; 'coder' | 'thinking' = show dropdown with that pair
+    AI_PROCESSOR_DROPDOWN_BASE: dropdownBase,
   });
 });
 
@@ -138,7 +157,8 @@ router.get('/reports/list', async (req, res) => {
       name: item.templateName,
       title: formatTitle(item.templateName),
       url: `/api/reports/render/${item.templateName}`,
-      file_hash: item.fileHash
+      file_hash: item.fileHash,
+      modified_at: item.mtime ? new Date(item.mtime).toISOString() : null,
     }));
 
     res.json({
@@ -356,7 +376,7 @@ async function checkOllamaAvailability() {
 // Prompt Dialog - create report template
 router.post('/generate-report-template', verifyToken, async (req, res) => {
   try {
-    const { prompt, action_type = 'create', file_name } = req.body;
+    const { prompt, action_type = 'create', file_name, processor_mode } = req.body;
 
     // Validate input
     if (!prompt || typeof prompt !== 'string') {
@@ -375,6 +395,27 @@ router.post('/generate-report-template', verifyToken, async (req, res) => {
     if (wordCount === 0) {
       return res.status(400).json({ error: 'Prompt cannot be empty' });
     }
+
+    // Validate optional processor_mode override (ai_processor engine only).
+    // Allowed values mirror the AI Processor's selectModel() switch.
+    const ALLOWED_PROCESSOR_MODES = ['coder', 'coder-small', 'thinking', 'thinking-small', 'default'];
+    const resolvedProcessorMode = (() => {
+      const envMode = (process.env.AI_PROCESSOR_MODE || 'coder').toLowerCase();
+      const requested = typeof processor_mode === 'string' ? processor_mode.toLowerCase() : null;
+
+      // Only honour the override when:
+      //   1. We're actually using the ai_processor engine
+      //   2. The requested mode is in the allowed list
+      //   3. The admin's env mode is a "standard" mode (not already locked to -small)
+      const isProcessor = (process.env.AI_ENGINE || '').toLowerCase() === 'ai_processor';
+      const isBaseMode  = ['coder', 'thinking'].includes(envMode);
+      const isValidOverride = requested && ALLOWED_PROCESSOR_MODES.includes(requested);
+
+      if (isProcessor && isBaseMode && isValidOverride) {
+        return requested;
+      }
+      return null; // null → ai-engine.js uses its own env default
+    })();
 
     // Check if AI engine is configured
     if (!aiEngine.isConfigured()) {
@@ -522,6 +563,8 @@ Output ONLY the CommonJS JSX component code. Output nothing else.`;
         systemPrompt,
         userPrompt,
         signal: controller.signal,
+        // Only set when a valid per-request override was provided
+        ...(resolvedProcessorMode ? { processorMode: resolvedProcessorMode } : {}),
       });
 
       clearTimeout(timeoutId);
@@ -571,11 +614,25 @@ Output ONLY the CommonJS JSX component code. Output nothing else.`;
     // Strip any postamble after module.exports = ...;
     jsxCode = jsxCode.replace(/(module\.exports\s*=\s*\w+\s*;)[\s\S]*$/, '$1');
 
-    // Inject the actual user prompt as a comment (create mode only)
+    // Remove any /* ... */ comment block the AI added at the top (we manage this ourselves)
+    jsxCode = jsxCode.replace(/^\s*\/\*[\s\S]*?\*\/\s*/m, '');
+
+    // Remove AI-generated inline metadata comments (AI assistant, AI model, User prompt lines)
+    jsxCode = jsxCode.replace(/^[ \t]*\/\/[ \t]*(AI assistant|AI model|User [Pp]rompt):.*(\r?\n)?/gm, '');
+
+    // Manage User Prompt comment block:
+    // - Create: always inject the new prompt as the comment header
+    // - Edit: re-attach the original comment from the source file (server-side, not AI-managed)
     if (action_type === 'create') {
       const sanitizedPrompt = prompt.replace(/\*\//g, '').substring(0, 500);
       const promptComment = `/*\n * User Prompt: ${sanitizedPrompt}\n * Generated: ${new Date().toISOString()}\n */\n`;
       jsxCode = promptComment + jsxCode;
+    } else if (action_type === 'edit') {
+      // Extract the original comment block from the source file and re-attach it
+      const originalCommentMatch = existingCode.match(/^(\s*\/\*[\s\S]*?\*\/\s*)/);
+      if (originalCommentMatch) {
+        jsxCode = originalCommentMatch[1] + jsxCode;
+      }
     }
 
     // Generate output filename
